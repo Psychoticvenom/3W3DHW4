@@ -1,0 +1,276 @@
+﻿<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<h1 style="text-align:center"> Homework 4</h1>
+<hr>
+<div id="container" style="float:left; margin:3px; width:60vw; height:60vw">
+</div>
+
+<div style="float:left; margin-left: 10px; width:32vw;">
+
+  <br>
+  <div style='background-color:yellow'>
+    Object type:
+    <br>
+    <input type="radio" id='s1' name='type' value='box'> Box
+    <input type="radio" id='s2' name='type' value='sphere'> Sphere
+  </div>
+  <br>
+  <div style='background-color:yellow'>
+    Color Selector:
+    <br>
+    <input type=radio id='c1' name='c' value='red'>red
+    <input type=radio id='c2' name='c' value='green'>green
+    <input type=radio id='c3' name='c' value='blue'>blue
+  </div>
+  <br>
+  <button id='save' style="width:45%">Save</button>
+  <button id='restore' style="width:45%">Restore</button>
+  <button id='clear' style="width:45%">Clear</button>
+</div>
+
+<script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/84/three.min.js"></script>
+<script src="https://threejs.org/examples/js/controls/OrbitControls.js">
+</script>
+
+<style>
+
+
+</style>
+</head>
+
+<body> 
+<script>
+
+var camera, scene, renderer, controls;
+var raycaster = new THREE.Raycaster();
+var mouse = new THREE.Vector2();
+var pickplane;
+var cyl;
+var spheres = [];
+var meshType = 1, colorType = 1;
+
+init();
+animate();
+
+$('#s1').click(function() {
+	meshType = 1;
+});
+
+$('#s2').click(function() {
+	meshType = 2;
+});
+
+$('#c1').click(function() {
+	colorType = 1;
+});
+
+$('#c2').click(function() {
+	colorType = 2;
+});
+
+$('#c3').click(function() {
+	colorType = 3;
+});
+
+$('#clear').click(function() {
+
+  spheres.forEach(function(sphere) {
+    scene.remove(sphere);
+  });
+  spheres = [];
+
+});
+
+$('#save').click(function() {
+
+  var states = [];
+  spheres.forEach(function(sphere) {
+    states.push(sphere.name);
+  });
+
+  localStorage.setItem('stateStr', JSON.stringify(states));
+
+});
+
+$('#restore').click(function() {
+
+  var states = JSON.parse(localStorage.getItem('stateStr'));
+  states.forEach(function(stateStr) {
+    console.log(stateStr);
+    var state = JSON.parse(stateStr);
+    buildMesh(state.mType, state.cType, state.rad, new THREE.Vector3(state.pos[0], 0, state.pos[1]));
+  });
+
+});
+
+function buildMesh(mType, cType, rad, pos) {
+
+	var material = new THREE.MeshLambertMaterial();
+  switch(cType){
+  	case 1 :
+    	material.color = new THREE.Color(0xff0000);
+    	break;
+    
+    case 2 :
+    	material.color = new THREE.Color(0x00ff00);
+    	break;
+      
+    case 3 :
+    	material.color = new THREE.Color(0x0000ff);
+    	break;
+  }
+  
+	switch(mType){
+  	case 1 :
+    
+    	var box = new THREE.Mesh(new THREE.BoxGeometry(rad, rad, rad), material);
+
+      scene.add(box);
+      var prop = {
+      	mType: mType,
+        cType: cType,
+        rad: rad,
+        pos: [pos.x, pos.z]
+      };
+      console.log(prop);
+      box.name = JSON.stringify(prop);
+      console.log(box.name);
+
+      spheres.push(box);
+      box.position.copy(pos);
+      
+    	break;
+      
+    case 2 :
+    
+    	var sphere = new THREE.Mesh(new THREE.SphereGeometry(rad, 20, 20), material);
+
+      scene.add(sphere);
+      var prop = {
+      	mType: mType,
+        cType: cType,
+        rad: rad,
+        pos: [pos.x, pos.z]
+      };
+      console.log(prop);
+      sphere.name = JSON.stringify(prop);
+      console.log(sphere.name);
+
+      spheres.push(sphere);
+      sphere.position.copy(pos);
+      
+    	break;
+  }
+  
+
+}
+
+function init() {
+
+  var ww = $("#container").innerWidth();
+  var hh = $("#container").innerHeight();
+  renderer = new THREE.WebGLRenderer();
+  renderer.setSize(ww, hh);
+  renderer.setClearColor(0x888888);
+  $("#container").append(renderer.domElement);
+
+  ////////////////////////////////////////////////
+
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(50, ww / hh, 1, 1000);
+  camera.position.z = 500;
+  scene.add(camera);
+
+  var cyl_geom = new THREE.RingGeometry(5, 10, 32);
+  var cyl_mat = new THREE.MeshBasicMaterial({
+    color: 0xff1234,
+  });
+  cyl = new THREE.Mesh(cyl_geom, cyl_mat);
+  cyl.rotation.x = -Math.PI/2;
+  cyl.position.set(-20, 0, 20);
+  scene.add(cyl);
+
+  pickplane = new THREE.Mesh(new THREE.PlaneGeometry(200, 200),
+    new THREE.MeshBasicMaterial({
+      color: 0xff1234
+    }));
+  pickplane.rotation.x = -Math.PI / 2;
+  scene.add(pickplane);
+  pickplane.material.visible = false;
+
+  var gridXZ = new THREE.GridHelper(200, 20, 'red', 'white');
+  scene.add(gridXZ);
+
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  window.addEventListener('resize', onWindowResize, false);
+  window.addEventListener('mousemove', onDocumentMouseMove, false);
+  window.addEventListener('mousedown', onDocumentMouseDown, false);
+  
+  //////////////////////////////////////////////////////////////////
+  
+  var light = new THREE.PointLight( 0xffffff, 1 );
+	light.position.set(100,150,100);
+	scene.add( light );
+}
+
+function onWindowResize() {
+  var ww = $("#container").innerWidth();
+  var hh = $("#container").innerHeight();
+
+  camera.aspect = ww / hh;
+  camera.updateProjectionMatrix();
+  renderer.setSize(ww, hh);
+}
+
+function onDocumentMouseMove(event) {
+
+  event.preventDefault();
+
+  var viewportPos = $('#container').get(0).getBoundingClientRect();
+  mouse.x = ((event.clientX - viewportPos.left) / $('#container').innerWidth()) * 2 - 1;
+  mouse.y = -((event.clientY - viewportPos.top) / $('#container').innerHeight()) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  var intersects = raycaster.intersectObject(pickplane);
+  if (intersects.length > 0) {
+    cyl.position.copy(intersects[0].point);
+    cyl.position.y = 2;
+  }
+}
+
+function onDocumentMouseDown(event) {
+
+  event.preventDefault();
+
+  var viewportPos = $('#container').get(0).getBoundingClientRect();
+  mouse.x = ((event.clientX - viewportPos.left) / $('#container').innerWidth()) * 2 - 1;
+  mouse.y = -((event.clientY - viewportPos.top) / $('#container').innerHeight()) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  var intersects = raycaster.intersectObject(pickplane);
+  if (intersects.length > 0) {
+    cyl.position.copy(intersects[0].point);
+    buildMesh(meshType, colorType, 10, intersects[0].point);
+  }
+}
+
+function animate() {
+
+  controls.update();
+  requestAnimationFrame(animate);
+  render();
+}
+
+function render() {
+  renderer.render(scene, camera);
+}
+
+</script>
+</body>
+
+</html>
